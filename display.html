@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Visualizar Senhas</title>
+  <style>
+    body {
+      background: #121212;
+      color: #fff;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding-top: 20px;
+    }
+    canvas {
+      background: #1e1e1e;
+      margin: 10px 0;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Senhas Recebidas</h2>
+  <div id="senhas"></div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCvx4_m1axcdhmn8pqtHVXopQavatcX1NM",
+      authDomain: "senha-padrao.firebaseapp.com",
+      projectId: "senha-padrao",
+      storageBucket: "senha-padrao.firebasestorage.app",
+      messagingSenderId: "947119781442",
+      appId: "1:947119781442:web:a76c46c9c3894fa96e5fdb"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const container = document.getElementById("senhas");
+
+    async function carregarSenhas() {
+      const snapshot = await getDocs(query(collection(db, "padrões"), orderBy("timestamp", "desc")));
+      snapshot.forEach(doc => {
+        const padrao = doc.data().padrao;  // array de índices dos pontos
+
+        const canvas = document.createElement("canvas");
+        canvas.width = 320;
+        canvas.height = 320;
+        const ctx = canvas.getContext("2d");
+
+        // Configurações para desenhar
+        const radius = 12;
+        const gridSize = 3;
+        const margin = 50;
+
+        // Calcula posições dos 9 pontos da grade 3x3
+        const pontos = [];
+        for(let row=0; row<gridSize; row++) {
+          for(let col=0; col<gridSize; col++) {
+            pontos.push({
+              x: margin + col * ((canvas.width - 2*margin) / (gridSize -1)),
+              y: margin + row * ((canvas.height - 2*margin) / (gridSize -1)),
+              index: row * gridSize + col + 1
+            });
+          }
+        }
+
+        // Desenha linhas ligando os pontos do padrão
+        ctx.strokeStyle = "#3a86ff";
+        ctx.lineWidth = 5;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+
+        ctx.beginPath();
+        for (let i = 0; i < padrao.length; i++) {
+          const p = pontos.find(pt => pt.index === padrao[i]);
+          if (i === 0) {
+            ctx.moveTo(p.x, p.y);
+          } else {
+            ctx.lineTo(p.x, p.y);
+          }
+        }
+        ctx.stroke();
+
+        // Desenha os pontos da grade e destaca os selecionados
+        pontos.forEach(p => {
+          ctx.beginPath();
+          const selecionado = padrao.includes(p.index);
+          ctx.fillStyle = selecionado ? "#3a86ff" : "#ccc";
+          ctx.strokeStyle = "#888";
+          ctx.lineWidth = 2;
+          ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.stroke();
+
+          if(selecionado) {
+            ctx.beginPath();
+            ctx.fillStyle = "#1e3a8a";
+            ctx.arc(p.x, p.y, radius / 2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        });
+
+        container.appendChild(canvas);
+      });
+    }
+
+    carregarSenhas();
+  </script>
+</body>
+</html>
+
+
+

